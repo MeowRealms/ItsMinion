@@ -1,0 +1,7 @@
+DISPLAY_MINION:
+  name: '&7<NAME>'
+  lore:
+    - ''
+    - '&7把这个小人放到地上,'
+    - '&7它就会开始生产&9<TYPE>&7.'
+    - '<info...>'
