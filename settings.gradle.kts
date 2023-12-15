@@ -1,1 +1,1 @@
-rootProject.name="Minion"
+rootProject.name="ItsMinion"

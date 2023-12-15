@@ -2,8 +2,9 @@ package io.github.itsflicker.minion
 
 import io.github.itsflicker.minion.common.BaseMinion
 import io.github.itsflicker.minion.common.MinionImpl
-import taboolib.common.io.runningClasses
+import taboolib.common.io.runningClassesWithoutLibrary
 import taboolib.common.platform.Schedule
+import taboolib.expansion.ioc.linker.linkedIOCList
 
 /**
  * @author wlys
@@ -11,21 +12,10 @@ import taboolib.common.platform.Schedule
  */
 object MinionAPI {
 
-    val registeredMinions = runningClasses
+    val registeredMinions = runningClassesWithoutLibrary
         .filter { it.isAnnotationPresent(MinionImpl::class.java) }
         .associateBy { it.getAnnotation(MinionImpl::class.java).value }
 
-    val runningMinions = mutableListOf<BaseMinion>()
+    val runningMinions = linkedIOCList<BaseMinion>()
 
-    val cachedMinions = mutableListOf<BaseMinion>()
-
-    @Schedule(async = true, period = 20)
-    fun e() {
-        runningMinions.removeAll { it.markRemoved }
-        runningMinions.forEach {
-            it.onPreTick()
-        }
-        runningMinions.addAll(cachedMinions)
-        cachedMinions.clear()
-    }
 }

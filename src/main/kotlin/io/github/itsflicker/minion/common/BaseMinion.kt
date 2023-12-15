@@ -1,149 +1,107 @@
 package io.github.itsflicker.minion.common
 
-import ink.ptms.adyeshach.common.entity.type.AdyArmorStand
+import com.google.gson.annotations.Expose
+import ink.ptms.adyeshach.core.Adyeshach
 import ink.ptms.zaphkiel.ZaphkielAPI
 import ink.ptms.zaphkiel.taboolib.module.nms.ItemTagData
-import io.github.itsflicker.minion.Minion
 import io.github.itsflicker.minion.MinionAPI
-import io.github.itsflicker.minion.internal.PublicHologram
-import io.github.itsflicker.minion.util.toRomeNumber
+import io.github.itsflicker.minion.generateInventory
+import io.github.itsflicker.minion.resourceSlots
+import io.github.itsflicker.minion.util.createMinionEntity
+import kotlinx.coroutines.Job
+import net.md_5.bungee.api.ChatColor
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
+import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
-import taboolib.common5.Baffle
-import taboolib.module.configuration.util.setLocation
-import taboolib.platform.util.toProxyLocation
-import java.util.concurrent.TimeUnit
+import taboolib.common5.util.parseMillis
+import taboolib.library.xseries.XItemStack
+import taboolib.library.xseries.XMaterial
+import taboolib.platform.util.buildItem
+import java.util.*
+import java.util.function.Predicate
 import kotlin.properties.Delegates
 
 /**
  * @author wlys
  * @since 2022/5/9 14:32
  */
-abstract class BaseMinion(val owner: OfflinePlayer, val location: Location) {
+abstract class BaseMinion(
+    @Expose val id: UUID,
+    @Expose val type: String,
+    @Expose val owner: OfflinePlayer,
+    @Expose val location: Location,
+    @Expose val tier: Int,
+    @Expose val totalGenerated: Int,
+    @Expose val chestplate: ItemStack?,
+    @Expose val leggings: ItemStack?,
+    @Expose val boots: ItemStack?
+) {
 
-    val originId = if (javaClass.isAnnotationPresent(MinionImpl::class.java)) {
-        javaClass.getAnnotation(MinionImpl::class.java).value
-    } else {
-        javaClass.simpleName.toString()
+    val info = MinionType.types.first { it.id == type }
+
+    val settings = info.tiers.first { it.tier == tier }
+
+    val name = settings.item
+
+    val color = Color.fromRGB(ChatColor.of(settings.color).color.rgb)
+
+    val item = ZaphkielAPI.getItem(settings.item)!!.rebuildToItemStack()
+
+    val hand = XItemStack.deserialize(settings.hand)
+
+    val hologram = Adyeshach.api().getHologramHandler().createHologram(location.add(0.0, 1.0, 0.0), emptyList())
+
+    val sleep = settings.sleep.parseMillis()
+
+    open val entity = createMinionEntity(location, hand, item) {
+        setEquipment(EquipmentSlot.CHEST, chestplate ?: buildItem(XMaterial.LEATHER_CHESTPLATE) { color = this@BaseMinion.color })
+        setEquipment(EquipmentSlot.LEGS, leggings ?: buildItem(XMaterial.LEATHER_LEGGINGS) { color = this@BaseMinion.color })
+        setEquipment(EquipmentSlot.FEET, boots ?: buildItem(XMaterial.LEATHER_BOOTS) { color = this@BaseMinion.color })
     }
-
-    val id by lazy { originId + info.level.toRomeNumber() }
-
-    lateinit var info: MinionInfo
-        private set
-
-    val item by lazy {
-        ZaphkielAPI.getItem(id)!!.rebuildToItemStack()
-    }
-
-    abstract val entity: AdyArmorStand
-
-    abstract val color: Color
-
-    abstract val resource: ItemStack
-
-    var markRemoved = false
 
     val viewings = mutableSetOf<Player>()
 
-    var status by Delegates.observable(Status.NULL) { _, oldValue, newValue ->
+    val inv = generateInventory(this)
+
+    var job: Job? = null
+
+    var status by Delegates.observable(MinionStatus.NULL) { _, oldValue, newValue ->
         if (newValue != oldValue) {
-            updateStatus()
+            hologram.updateSafely(newValue.text)
         }
     }
 
-    private var hologram: PublicHologram<*>? = null
-
-    private val baffle by lazy { Baffle.of(info.delay, TimeUnit.SECONDS) }
-
-    val maxStorage by lazy { resource.type.maxStackSize * (info.maxStorage) }
-
-    open fun onPreTick() {
-        if (baffle.hasNext() && location.chunk.isLoaded) {
-            onTick()
-        }
+    fun addItem(vararg item: ItemStack) {
+        XItemStack.addItems(inv, true, { it in resourceSlots }, *item)
     }
 
-    open fun onTick() {
-
+    fun isFulled(item: ItemStack): Boolean {
+        return XItemStack.firstPartialOrEmpty(inv, item, resourceSlots[0]) !in resourceSlots
     }
 
-    open fun init(info: MinionInfo) {
-        this.info = info
-        id
-        entity.id = id + info.uuid.toString()
-        MinionAPI.cachedMinions.add(this)
+    open fun start() = Unit
+
+    open fun end() {
+        job?.cancel()
     }
 
-    open fun destroy(player: Player? = null, save: Boolean = false): ItemStack {
-        markRemoved = true
-        entity.delete()
-        hologram?.delete()
+    open fun destroy() {
+        end()
+        MinionAPI.runningMinions.remove(this)
+        entity.remove()
+        hologram.remove()
+    }
 
-        if (save) {
-            save()
-        } else {
-            Minion.data[info.uuid.toString()] = null
-        }
-        return ZaphkielAPI.getItem(id, player)!!.also {
-            it.getZaphkielData().apply {
-                this["owner"] = ItemTagData(owner.uniqueId.toString())
-                this["uuid"] = ItemTagData(info.uuid.toString())
-                this["level"] = ItemTagData(info.level.toString())
-                this["amount"] = ItemTagData(info.amount.toString())
-                this["totalGenerated"] = ItemTagData(info.totalGenerated.toString())
-                this["maxStorage"] = ItemTagData(info.maxStorage.toString())
-                this["delay"] = ItemTagData(info.delay.toString())
+    open fun getItem(): ItemStack {
+        return ZaphkielAPI.getItem(settings.item)!!.also { stream ->
+            stream.getZaphkielData().also {
+                it["type"] = ItemTagData(type)
+                it["tier"] = ItemTagData(tier)
+                it["totalGenerated"] = ItemTagData(totalGenerated.toString())
             }
-        }.rebuildToItemStack(player)
+        }.rebuildToItemStack()
     }
-
-    open fun save() {
-        val key = info.uuid.toString()
-        Minion.data[key] = mapOf(
-            "type" to originId,
-            "owner" to owner.uniqueId.toString()
-        )
-        Minion.data.setLocation("$key.location", location.toProxyLocation())
-        Minion.data["$key.info"] = mapOf(
-            "uuid" to info.uuid.toString(),
-            "level" to info.level,
-            "amount" to info.amount,
-            "totalGenerated" to info.totalGenerated,
-            "maxStorage" to info.maxStorage,
-            "delay" to info.delay
-        )
-    }
-
-    open fun updateStatus() {
-        hologram?.delete()
-        if (status.text.isNotEmpty()) {
-            hologram = PublicHologram.AdyeshachImpl().also { it.create(location.add(0.0, 1.0, 0.0), status.text) }
-        }
-    }
-
-    fun increaseAmount(amount: Int) {
-        info.amount += amount
-        if (info.amount > maxStorage) {
-            info.amount = maxStorage
-        }
-//        submit {
-//            ArrayList(viewings).forEach {
-//                it.closeInventory()
-//                it.openMinionMenu(this@BaseMinion)
-//            }
-//        }
-    }
-
-    enum class Status(val text: List<String>) {
-        NO_SPACE(listOf("§c/!\\", "§c没有工作空间! :(")),
-
-        FULL(listOf("§c/!\\", "§c我的背包满了! :(")),
-
-        NULL(emptyList())
-    }
-
 }

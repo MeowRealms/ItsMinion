@@ -1,42 +1,50 @@
 package io.github.itsflicker.minion
 
-import io.github.itsflicker.minion.common.BaseMinion
-import io.github.itsflicker.minion.common.MinionInfo
-import org.bukkit.Bukkit
+import ink.ptms.adyeshach.impl.DefaultAdyeshachBooster
+import io.github.itsflicker.minion.internal.Loader
+import io.github.itsflicker.minion.util.coroutineScope
+import kotlinx.coroutines.cancel
+import taboolib.common.LifeCycle
+import taboolib.common.TabooLibCommon
+import taboolib.common.env.RuntimeDependencies
+import taboolib.common.env.RuntimeDependency
+import taboolib.common.io.runningClassesWithoutLibrary
 import taboolib.common.platform.Plugin
-import taboolib.common.reflect.Reflex.Companion.invokeConstructor
+import taboolib.common.platform.function.disablePlugin
+import taboolib.expansion.ioc.IOCReader
 import taboolib.module.configuration.Configuration
-import taboolib.module.configuration.createLocal
-import taboolib.module.configuration.util.getLocation
-import taboolib.platform.util.toBukkitLocation
-import java.util.*
 
+@RuntimeDependencies(
+    RuntimeDependency(
+        value = "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3",
+        relocate = ["!kotlin.", "!kotlin@kotlin_version_escape@."]
+    ),
+    RuntimeDependency(
+        value = "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3",
+        relocate = ["!kotlin.", "!kotlin@kotlin_version_escape@."]
+    )
+)
 object Minion : Plugin() {
+
+    init {
+        TabooLibCommon.postpone(LifeCycle.LOAD) {
+            try {
+                DefaultAdyeshachBooster.startup()
+            } catch (ex: Throwable) {
+                ex.printStackTrace()
+                disablePlugin()
+            }
+        }
+    }
 
 //    @Config
     lateinit var conf: Configuration
         private set
 
-    val data by lazy { createLocal("data.yml") }
-
     override fun onEnable() {
-        data.getKeys(false).forEach { key ->
-            data.getConfigurationSection(key)!!.apply {
-                val type = MinionAPI.registeredMinions.entries.firstOrNull { it.key == getString("type") }?.value ?: return@apply
-                val owner = Bukkit.getOfflinePlayer(UUID.fromString(getString("owner")))
-                val location = getLocation("location")!!.toBukkitLocation()
-                val info = getConfigurationSection("info")!!.run {
-                    val uuid = getString("uuid")?.let { UUID.fromString(it) } ?: UUID.randomUUID()
-                    val level = getInt("level", 1)
-                    val amount = getInt("amount", 0)
-                    val totalGenerated = getInt("totalGenerated", 0)
-                    val maxStorage = getInt("maxStorage", 3)
-                    val delay = getLong("delay", 30L)
-                    MinionInfo(uuid, level, amount, totalGenerated, maxStorage, delay)
-                }
-                (type.invokeConstructor(owner, location) as BaseMinion).init(info)
-            }
-        }
+        coroutineScope
+        Loader.loadTypes()
+        IOCReader.readRegister(runningClassesWithoutLibrary)
     }
 
     override fun onDisable() {
@@ -44,8 +52,8 @@ object Minion : Plugin() {
             it.viewings.forEach { player ->
                 player.closeInventory()
             }
-            it.destroy(save = true)
+            it.destroy()
         }
-        data.saveToFile()
+        coroutineScope.cancel()
     }
 }

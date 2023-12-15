@@ -1,17 +1,16 @@
 package io.github.itsflicker.minion.internal
 
-import ink.ptms.adyeshach.api.event.AdyeshachEntityInteractEvent
+import ink.ptms.adyeshach.core.event.AdyeshachEntityDamageEvent
+import ink.ptms.adyeshach.core.event.AdyeshachEntityInteractEvent
 import ink.ptms.zaphkiel.api.event.ItemEvent
 import ink.ptms.zaphkiel.api.event.ItemReleaseEvent
 import io.github.itsflicker.minion.MinionAPI
 import io.github.itsflicker.minion.common.BaseMinion
-import io.github.itsflicker.minion.common.MinionInfo
-import io.github.itsflicker.minion.openMinionMenu
 import org.bukkit.block.BlockFace
-import org.bukkit.event.block.Action
-import org.bukkit.inventory.EquipmentSlot
 import taboolib.common.platform.event.SubscribeEvent
-import taboolib.common.reflect.Reflex.Companion.invokeConstructor
+import taboolib.common5.util.parseUUID
+import taboolib.library.reflex.Reflex.Companion.invokeConstructor
+import taboolib.library.xseries.XItemStack
 import java.util.*
 
 /**
@@ -21,57 +20,63 @@ import java.util.*
 object Listener {
 
     @SubscribeEvent
-    fun e(e: ItemEvent.Interact) {
-        val event = e.bukkitEvent
-        if (event.hand == EquipmentSlot.HAND
-            && event.hasBlock()
-            && event.action == Action.RIGHT_CLICK_BLOCK
-            && event.blockFace == BlockFace.UP
-            && e.itemStream.getZaphkielItem().group?.name.equals("minion", true))
+    fun onPlace(e: ItemEvent.Interact) {
+        if (e.isMainhand()
+            && e.hasBlock()
+            && e.isRightClickBlock()
+            && e.blockFace == BlockFace.UP)
         {
-            val minion = MinionAPI.registeredMinions.entries.firstOrNull { e.itemStream.getZaphkielItem().id.startsWith(it.key) }?.value ?: return
-            val info = e.itemStream.getZaphkielData().run {
-                val uuid = get("uuid")?.asString()?.let { UUID.fromString(it) } ?: UUID.randomUUID()
-                val level = get("level")?.asInt() ?: 1
-                val amount = get("amount")?.asInt() ?: 0
-                val totalGenerated = get("totalGenerated")?.asInt() ?: 0
-                val maxStorage = get("maxStorage")?.asInt() ?: 3
-                val delay = get("delay")?.asLong() ?: 30L
-                MinionInfo(uuid, level, amount, totalGenerated, maxStorage, delay)
-            }
-            (minion.invokeConstructor(
-                event.player,
-                event.clickedBlock!!.location.clone().add(0.5, 1.0, 0.5),
-            ) as BaseMinion).init(info)
+            val data = e.itemStream.getZaphkielData()
+            val type = data["type"]?.asString() ?: return
+            val minion = MinionAPI.registeredMinions[type] ?: return
 
-            event.isCancelled = true
+            val id = data["uuid"]?.asString()?.parseUUID() ?: UUID.randomUUID()
+            val tier = data["tier"]?.asInt() ?: 1
+            val totalGenerated = data["totalGenerated"]?.asInt() ?: 0
 
-            val item = event.player.inventory.itemInMainHand
+            (minion.invokeConstructor(id, type, e.player,
+                e.clickedBlock!!.location.clone().add(0.5, 1.0, 0.5),
+                tier, totalGenerated, null, null, null
+            ) as BaseMinion).start()
+
+            e.isCancelled = true
+
+            val item = e.player.inventory.itemInMainHand
             if (item.amount > 1) {
                 item.amount -= 1
-                event.player.inventory.setItemInMainHand(item)
+                e.player.inventory.setItemInMainHand(item)
             } else {
-                event.player.inventory.setItemInMainHand(null)
+                e.player.inventory.setItemInMainHand(null)
             }
         }
     }
 
     @SubscribeEvent
-    fun e(e: ItemReleaseEvent.Display) {
+    fun onDisplay(e: ItemReleaseEvent.Display) {
+        val data = e.itemStream.getZaphkielData()
         e.addLore("info", listOf(
             "",
-            "§7休息时间: §a${e.itemStream.getZaphkielData()["delay"]?.asInt() ?: 48}s",
-            "§7最大存储量: §e${e.itemStream.getZaphkielData()["maxStorage"]?.asInt() ?: 3}组",
-            "§7生成的资源总数: §3${e.itemStream.getZaphkielData()["totalGenerated"]?.asInt() ?: 0}",
+            "§7等级: §a${data["tier"]?.asInt() ?: 1}阶",
+            "§7已生产: §3${data["totalGenerated"]?.asInt() ?: 0}",
             ""
         ))
     }
 
     @SubscribeEvent
-    fun e(e: AdyeshachEntityInteractEvent) {
+    fun onClick(e: AdyeshachEntityInteractEvent) {
+        if (!e.isMainHand) return
         val minion = MinionAPI.runningMinions.firstOrNull { it.entity == e.entity } ?: return
         if (e.player.uniqueId == minion.owner.uniqueId) {
-            e.player.openMinionMenu(minion)
+            e.player.openInventory(minion.inv)
+        }
+    }
+
+    @SubscribeEvent
+    fun onDamage(e: AdyeshachEntityDamageEvent) {
+        val minion = MinionAPI.runningMinions.firstOrNull { it.entity == e.entity } ?: return
+        if (minion.owner.uniqueId == e.player.uniqueId) {
+            minion.destroy()
+            XItemStack.giveOrDrop(e.player, minion.getItem())
         }
     }
 }

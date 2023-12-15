@@ -1,0 +1,14 @@
+type: mining
+base: AIR
+resources:
+  - weight: 1
+    block: COBBLESTONE
+    item:
+      material: COBBLESTONE
+tiers:
+  - tier: 1
+    color: GRAY
+    sleep: 10s
+    item: "圆石小人I"
+    hand:
+      material: WOODEN_PICKAXE

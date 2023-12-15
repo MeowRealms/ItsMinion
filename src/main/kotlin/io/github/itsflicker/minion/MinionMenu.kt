@@ -1,88 +1,80 @@
 package io.github.itsflicker.minion
 
 import io.github.itsflicker.minion.common.BaseMinion
-import org.bukkit.entity.Player
-import taboolib.library.xseries.XItemStack
+import org.bukkit.Material
+import org.bukkit.inventory.EquipmentSlot
+import org.bukkit.inventory.Inventory
 import taboolib.library.xseries.XMaterial
-import taboolib.module.ui.openMenu
-import taboolib.module.ui.type.Basic
+import taboolib.module.ui.buildMenu
+import taboolib.module.ui.type.Stored
 import taboolib.platform.util.buildItem
+import taboolib.platform.util.giveItem
 import taboolib.platform.util.isAir
-import taboolib.platform.util.isNotAir
 
 /**
  * @author wlys
  * @since 2022/5/9 14:30
  */
 val resourceSlots = arrayOf(
+    12, 13, 14, 15, 16,
     21, 22, 23, 24, 25,
-    30, 31, 32, 33, 34,
-    39, 40, 41, 42, 43
+    30, 31, 32, 33, 34
 )
 
-fun Player.openMinionMenu(minion: BaseMinion) {
-    minion.viewings.add(this)
-    openMenu<Basic>(minion.id) {
-        rows(6)
-        handLocked(false)
-        map(
-            "xxxLMxxxx",
-            "xxxxxxxxx",
-            "xxxIIIIIx",
-            "xxxIIIIIx",
-            "xxxIIIIIx",
-            "xxxCxQxxD",
-        )
-        set('x', PLACEHOLDER)
-        set('L', XMaterial.REDSTONE_TORCH) {
-            name = "§c工作环境"
+val resourceSlotRanges = listOf(
+    12..16,
+    21..25,
+    30..34
+)
+
+fun generateInventory(minion: BaseMinion): Inventory = buildMenu<Stored>(minion.name) {
+    rows(6)
+    map(
+        "xaxxxMxxx",
+        "xhxIIIIIx",
+        "xcxIIIIIx",
+        "xlxIIIIIx",
+        "xbxxxCxxx",
+        "xxxfffffx",
+    )
+    rule {
+        checkSlot(0 until 54) { _, _ -> false }
+        checkSlot(18) { _, item -> item.type.equipmentSlot == EquipmentSlot.CHEST }
+        checkSlot(27) { _, item -> item.type.equipmentSlot == EquipmentSlot.LEGS }
+        checkSlot(36) { _, item -> item.type.equipmentSlot == EquipmentSlot.FEET }
+        resourceSlots.forEach {
+            checkSlot(it) { inv, item -> inv.getItem(it)?.type != Material.WHITE_STAINED_GLASS_PANE && item.isAir }
         }
-        set('M', minion.item)
-        set('C', XMaterial.CHEST) {
-            name = "§6全部收回"
-        }
-        set('Q', XMaterial.DIAMOND) {
-            name = "§2快速升级"
-        }
-        set('D', XMaterial.BEDROCK) {
-            name = "§c摧毁"
-        }
-        var amount = minion.info.amount
-        resourceSlots.forEach { slot ->
-            if (amount - minion.resource.type.maxStackSize > 0) {
-                set(slot, minion.resource.clone().also { r -> r.amount = 64 })
-                amount -= minion.resource.type.maxStackSize
-            } else if (amount > 0) {
-                set(slot, minion.resource.clone().also { r -> r.amount = amount })
-                amount = 0
+        firstSlot { _, item ->
+            when (item.type.equipmentSlot) {
+                EquipmentSlot.CHEST -> 18
+                EquipmentSlot.LEGS -> 27
+                EquipmentSlot.FEET -> 36
+                else -> -1
             }
         }
-        onClick(lock = true) {
-            when (it.slot) {
-                'I' -> {
-                    if (it.currentItem.isNotAir()) {
-                        XItemStack.giveOrDrop(it.clicker, it.currentItem)
-                        minion.info.amount -= it.currentItem!!.amount
-                        it.currentItem = null
-                    }
-                }
-                'C' -> {
-                    XItemStack.giveOrDrop(it.clicker, true, minion.resource.clone().also { r -> r.amount = minion.info.amount })
-                    minion.info.amount = 0
-                    it.clicker.openMinionMenu(minion)
-                }
-                'D' -> {
-                    XItemStack.giveOrDrop(it.clicker, minion.destroy())
-                    it.clicker.closeInventory()
+        writeItem { inv, item, slot ->
+
+        }
+        readItem { inv, slot ->
+            if (slot !in 0 until inv.size) null
+            else {
+                when (slot) {
+                    18 -> minion.chestplate
+                    27 -> minion.leggings
+                    36 -> minion.boots
+                    else -> inv.getItem(slot)
                 }
             }
-        }
-        onClose {
-            minion.viewings.remove(it.player)
         }
     }
-}
+    set('x', XMaterial.BLACK_STAINED_GLASS_PANE) { name = "§r" }
+    set('a', XMaterial.ARMOR_STAND) {  }
+    set('f', XMaterial.ORANGE_STAINED_GLASS_PANE) { name = "§r" }
+    set('M', minion.item)
+    set('C', buildItem(XMaterial.CHEST) { name = "&6全部收回" }) {
+        val resources = resourceSlots.mapNotNull { minion.inv.getItem(it).takeUnless { item -> item?.type == Material.WHITE_STAINED_GLASS_PANE } }
+        clicker.giveItem(resources)
 
-val PLACEHOLDER = buildItem(XMaterial.BLACK_STAINED_GLASS_PANE) {
-    name = "§r"
+    }
 }

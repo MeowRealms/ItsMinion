@@ -1,0 +1,9 @@
+type: farmer
+seed: WHEAT_SEEDS
+crop: WHEAT
+tiers:
+  - color: YELLOW
+    sleep: 10s
+    item: "小麦小人I"
+    hand:
+      material: WOODEN_HOE
