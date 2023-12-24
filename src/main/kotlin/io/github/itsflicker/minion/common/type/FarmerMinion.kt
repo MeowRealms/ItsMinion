@@ -13,9 +13,9 @@ import java.util.*
  * @since 2022/6/24 22:28
  */
 //@MinionImpl("farmer")
-@Component(index = "id")
+@Component(index = "uuid")
 class FarmerMinion(
-    id: UUID,
+    uuid: UUID,
     type: String,
     owner: OfflinePlayer,
     location: Location,
@@ -24,7 +24,7 @@ class FarmerMinion(
     chestplate: ItemStack?,
     leggings: ItemStack?,
     boots: ItemStack?
-) : BaseMinion(id, type, owner, location, tier, totalGenerated, chestplate, leggings, boots) {
+) : BaseMinion(uuid, type, owner, location, tier, totalGenerated, chestplate, leggings, boots) {
 
     override fun start() {
 //        val dirtArea = ArrayList<Block>()

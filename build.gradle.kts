@@ -5,7 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "1.9.0"
 }
 
-val adyeshachVersion = "2.0.0-snapshot-25"
+val adyeshachVersion = "2.0.0-snapshot-36"
 
 taboolib {
     description {
@@ -29,6 +29,7 @@ taboolib {
     install("platform-bukkit")
     install("expansion-command-helper")
     install("expansion-ioc")
+//    relocate("ink.ptms.adyeshach", "io.github.itsflicker.minion.adyeshach")
     classifier = null
     version = "6.0.12-40"
 }

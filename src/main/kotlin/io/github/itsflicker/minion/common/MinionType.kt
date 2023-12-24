@@ -5,9 +5,9 @@ import taboolib.module.configuration.Configuration
 import taboolib.module.configuration.MapConverter
 
 data class MinionType(
-    val id: String,
-    val type: String,
-    val tiers: List<MinionTier>
+    val id: String = "",
+    val parent: String = "",
+    val tiers: MutableList<MinionTier> = mutableListOf()
 ) {
 
     lateinit var conf: Configuration
@@ -20,11 +20,11 @@ data class MinionType(
 }
 
 data class MinionTier(
-    val tier: Int,
-    val color: String,
-    val sleep: String,
-    val storage: Int,
-    val item: String,
+    val tier: Int = 0,
+    val color: String = "",
+    val sleep: String = "",
+    val storage: Int = 0,
+    val item: String = "",
     @Conversion(MapConverter::class)
-    val hand: Map<String, *>
+    val hand: MutableMap<String, *> = mutableMapOf("material" to "stone")
 )

@@ -29,7 +29,7 @@ import kotlin.properties.Delegates
  * @since 2022/5/9 14:32
  */
 abstract class BaseMinion(
-    @Expose val id: UUID,
+    @Expose val uuid: UUID,
     @Expose val type: String,
     @Expose val owner: OfflinePlayer,
     @Expose val location: Location,
@@ -46,7 +46,7 @@ abstract class BaseMinion(
 
     val name = settings.item
 
-    val color = Color.fromRGB(ChatColor.of(settings.color).color.rgb)
+    val color = ChatColor.of(settings.color).color.let { Color.fromRGB(it.red, it.green, it.blue) }
 
     val item = ZaphkielAPI.getItem(settings.item)!!.rebuildToItemStack()
 
@@ -95,10 +95,10 @@ abstract class BaseMinion(
         hologram.remove()
     }
 
-    open fun getItem(): ItemStack {
+    open fun buildMinionItem(): ItemStack {
         return ZaphkielAPI.getItem(settings.item)!!.also { stream ->
             stream.getZaphkielData().also {
-                it["type"] = ItemTagData(type)
+                it["minion"] = ItemTagData(type)
                 it["tier"] = ItemTagData(tier)
                 it["totalGenerated"] = ItemTagData(totalGenerated.toString())
             }

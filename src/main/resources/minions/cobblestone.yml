@@ -1,4 +1,5 @@
-type: mining
+id: cobblestone
+parent: mining
 base: AIR
 resources:
   - weight: 1

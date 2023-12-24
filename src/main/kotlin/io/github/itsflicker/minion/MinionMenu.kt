@@ -72,7 +72,7 @@ fun generateInventory(minion: BaseMinion): Inventory = buildMenu<Stored>(minion.
     set('a', XMaterial.ARMOR_STAND) {  }
     set('f', XMaterial.ORANGE_STAINED_GLASS_PANE) { name = "§r" }
     set('M', minion.item)
-    set('C', buildItem(XMaterial.CHEST) { name = "&6全部收回" }) {
+    set('C', buildItem(XMaterial.CHEST) { name = "§6全部收回" }) {
         val resources = resourceSlots.mapNotNull { minion.inv.getItem(it).takeUnless { item -> item?.type == Material.WHITE_STAINED_GLASS_PANE } }
         clicker.giveItem(resources)
 

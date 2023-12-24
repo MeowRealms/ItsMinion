@@ -29,9 +29,9 @@ import java.util.*
  * @since 2022/5/20 23:51
  */
 @MinionImpl("mining")
-@Component(index = "id")
+@Component(index = "uuid")
 class MiningMinion(
-    id: UUID,
+    uuid: UUID,
     type: String,
     owner: OfflinePlayer,
     location: Location,
@@ -40,7 +40,7 @@ class MiningMinion(
     chestplate: ItemStack?,
     leggings: ItemStack?,
     boots: ItemStack?
-) : BaseMinion(id, type, owner, location, tier, totalGenerated, chestplate, leggings, boots) {
+) : BaseMinion(uuid, type, owner, location, tier, totalGenerated, chestplate, leggings, boots) {
 
     val baseBlock = Material.valueOf(info.conf.getString("base")!!.uppercase())
     val randomList = RandomList<Resource>()
@@ -96,6 +96,9 @@ class MiningMinion(
                     continue
                 }
                 status = MinionStatus.NULL
+                if (blocks.isEmpty()) {
+                    continue
+                }
                 val target = blocks.random()
                 entity.controllerLookAt(target.location.center())
                 // 挖掘
@@ -106,10 +109,11 @@ class MiningMinion(
                         delay(4)
                     }
                 }
+                val item = resources.firstOrNull { it.block == target.type }?.item ?: continue
+                addItem(item)
                 withContext(BukkitDispatcher()) {
                     target.type = baseBlock
                 }
-                addItem(resources.first { it.block == target.type }.item)
             }
         }
     }
