@@ -2,26 +2,30 @@ package io.github.itsflicker.minion.common
 
 import com.google.gson.annotations.Expose
 import ink.ptms.adyeshach.core.Adyeshach
+import ink.ptms.adyeshach.core.AdyeshachHologram
+import ink.ptms.adyeshach.core.entity.type.AdyArmorStand
 import ink.ptms.zaphkiel.ZaphkielAPI
 import ink.ptms.zaphkiel.taboolib.module.nms.ItemTagData
 import io.github.itsflicker.minion.MinionAPI
-import io.github.itsflicker.minion.generateInventory
-import io.github.itsflicker.minion.resourceSlots
 import io.github.itsflicker.minion.util.createMinionEntity
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import net.md_5.bungee.api.ChatColor
+import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.OfflinePlayer
-import org.bukkit.entity.Player
 import org.bukkit.inventory.EquipmentSlot
+import org.bukkit.inventory.Inventory
+import org.bukkit.inventory.InventoryHolder
 import org.bukkit.inventory.ItemStack
 import taboolib.common5.util.parseMillis
+import taboolib.expansion.AsyncDispatcher
+import taboolib.expansion.Chain
 import taboolib.library.xseries.XItemStack
 import taboolib.library.xseries.XMaterial
 import taboolib.platform.util.buildItem
+import taboolib.platform.util.isNotAir
 import java.util.*
-import java.util.function.Predicate
 import kotlin.properties.Delegates
 
 /**
@@ -38,9 +42,9 @@ abstract class BaseMinion(
     @Expose val chestplate: ItemStack?,
     @Expose val leggings: ItemStack?,
     @Expose val boots: ItemStack?
-) {
+) : InventoryHolder {
 
-    val info = MinionType.types.first { it.id == type }
+    val info = MinionType.types.first { it.name == type }
 
     val settings = info.tiers.first { it.tier == tier }
 
@@ -52,21 +56,15 @@ abstract class BaseMinion(
 
     val hand = XItemStack.deserialize(settings.hand)
 
-    val hologram = Adyeshach.api().getHologramHandler().createHologram(location.add(0.0, 1.0, 0.0), emptyList())
+    val sleepMillis = settings.sleep.parseMillis()
 
-    val sleep = settings.sleep.parseMillis()
+    val availableSlots = 0 until settings.storage
 
-    open val entity = createMinionEntity(location, hand, item) {
-        setEquipment(EquipmentSlot.CHEST, chestplate ?: buildItem(XMaterial.LEATHER_CHESTPLATE) { color = this@BaseMinion.color })
-        setEquipment(EquipmentSlot.LEGS, leggings ?: buildItem(XMaterial.LEATHER_LEGGINGS) { color = this@BaseMinion.color })
-        setEquipment(EquipmentSlot.FEET, boots ?: buildItem(XMaterial.LEATHER_BOOTS) { color = this@BaseMinion.color })
-    }
+    lateinit var hologram: AdyeshachHologram
 
-    val viewings = mutableSetOf<Player>()
+    lateinit var entity: AdyArmorStand
 
-    val inv = generateInventory(this)
-
-    var job: Job? = null
+    protected lateinit var inv: Inventory
 
     var status by Delegates.observable(MinionStatus.NULL) { _, oldValue, newValue ->
         if (newValue != oldValue) {
@@ -74,22 +72,58 @@ abstract class BaseMinion(
         }
     }
 
-    fun addItem(vararg item: ItemStack) {
-        XItemStack.addItems(inv, true, { it in resourceSlots }, *item)
+    var job: Job? = null
+
+    abstract val workChain: Chain
+
+    fun addItems(vararg item: ItemStack) {
+        XItemStack.addItems(inv, true, { it in availableSlots }, *item)
     }
 
     fun isFulled(item: ItemStack): Boolean {
-        return XItemStack.firstPartialOrEmpty(inv, item, resourceSlots[0]) !in resourceSlots
+        return XItemStack.firstPartialOrEmpty(inv, item, 0) !in availableSlots
     }
 
-    open fun start() = Unit
+    fun getItems(): List<ItemStack> {
+        return availableSlots.mapNotNull { slot ->
+            inv.getItem(slot).takeIf { it.isNotAir() }
+        }
+    }
 
-    open fun end() {
+    fun clearItems(slot: Int = -1) {
+        if (slot < 0) {
+            inv.clear()
+        } else {
+            inv.clear(slot)
+        }
+    }
+
+    open fun init() {
+        inv = Bukkit.createInventory(this, 54)
+        entity = createMinionEntity(location, hand, item) {
+            setEquipment(EquipmentSlot.CHEST, chestplate ?: buildItem(XMaterial.LEATHER_CHESTPLATE) { color = this@BaseMinion.color })
+            setEquipment(EquipmentSlot.LEGS, leggings ?: buildItem(XMaterial.LEATHER_LEGGINGS) { color = this@BaseMinion.color })
+            setEquipment(EquipmentSlot.FEET, boots ?: buildItem(XMaterial.LEATHER_BOOTS) { color = this@BaseMinion.color })
+        }
+        hologram = Adyeshach.api().getHologramHandler().createHologram(location.add(0.0, 1.0, 0.0), emptyList())
+    }
+
+    open fun startJob() {
+        if (job != null) return
+        job = CoroutineScope(AsyncDispatcher).launch {
+            while (isActive) {
+                delay(sleepMillis)
+                workChain.chain(workChain)
+            }
+        }
+    }
+
+    open fun endJob() {
         job?.cancel()
     }
 
     open fun destroy() {
-        end()
+        endJob()
         MinionAPI.runningMinions.remove(this)
         entity.remove()
         hologram.remove()
@@ -103,5 +137,9 @@ abstract class BaseMinion(
                 it["totalGenerated"] = ItemTagData(totalGenerated.toString())
             }
         }.rebuildToItemStack()
+    }
+
+    override fun getInventory(): Inventory {
+        return inv
     }
 }

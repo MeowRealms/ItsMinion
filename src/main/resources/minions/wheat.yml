@@ -1,4 +1,5 @@
-type: farmer
+name: wheat
+impl: farmer
 seed: WHEAT_SEEDS
 crop: WHEAT
 tiers:

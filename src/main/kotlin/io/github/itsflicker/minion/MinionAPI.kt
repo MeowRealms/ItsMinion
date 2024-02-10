@@ -2,8 +2,7 @@ package io.github.itsflicker.minion
 
 import io.github.itsflicker.minion.common.BaseMinion
 import io.github.itsflicker.minion.common.MinionImpl
-import taboolib.common.io.runningClassesWithoutLibrary
-import taboolib.common.platform.Schedule
+import taboolib.common.io.runningExactClasses
 import taboolib.expansion.ioc.linker.linkedIOCList
 
 /**
@@ -12,7 +11,7 @@ import taboolib.expansion.ioc.linker.linkedIOCList
  */
 object MinionAPI {
 
-    val registeredMinions = runningClassesWithoutLibrary
+    val registeredMinions = runningExactClasses
         .filter { it.isAnnotationPresent(MinionImpl::class.java) }
         .associateBy { it.getAnnotation(MinionImpl::class.java).value }
 

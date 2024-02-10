@@ -2,15 +2,14 @@ package io.github.itsflicker.minion.internal
 
 import ink.ptms.adyeshach.core.event.AdyeshachEntityDamageEvent
 import ink.ptms.adyeshach.core.event.AdyeshachEntityInteractEvent
-import ink.ptms.zaphkiel.api.event.ItemBuildEvent
 import ink.ptms.zaphkiel.api.event.ItemEvent
 import ink.ptms.zaphkiel.api.event.ItemReleaseEvent
 import io.github.itsflicker.minion.MinionAPI
 import io.github.itsflicker.minion.common.BaseMinion
 import io.github.itsflicker.minion.common.MinionType
+import io.github.itsflicker.minion.openMinionMenu
 import org.bukkit.block.BlockFace
 import taboolib.common.platform.event.SubscribeEvent
-import taboolib.common.platform.function.info
 import taboolib.common5.util.parseUUID
 import taboolib.library.reflex.Reflex.Companion.invokeConstructor
 import taboolib.library.xseries.XItemStack
@@ -26,15 +25,13 @@ object Listener {
     fun onPlace(e: ItemEvent.Interact) {
         val data = e.itemStream.getZaphkielData()
         val type = data["minion"]?.asString() ?: return
-        info(type)
         e.bukkitEvent.isCancelled = true
         if (!e.isRightClickBlock() || e.blockFace != BlockFace.UP) return
 
-        val parent = MinionType.types.firstOrNull { it.id == type }?.parent ?: return
-        info(parent)
-        val minion = MinionAPI.registeredMinions[parent] ?: return
+        val impl = MinionType.types.firstOrNull { it.name == type }?.impl ?: return
+        val minion = MinionAPI.registeredMinions[impl] ?: return
 
-        val id = data["uuid"]?.asString()?.parseUUID() ?: UUID.randomUUID()
+        val uuid = data["uuid"]?.asString()?.parseUUID() ?: UUID.randomUUID()
         val tier = data["tier"]?.asInt() ?: 1
         val totalGenerated = data["totalGenerated"]?.asInt() ?: 0
 
@@ -46,19 +43,12 @@ object Listener {
             e.player.inventory.setItemInMainHand(null)
         }
 
-        val instance = minion.invokeConstructor(id, type, e.player,
+        val instance = minion.invokeConstructor(uuid, type, e.player,
             e.clickedBlock!!.location.clone().add(0.5, 1.0, 0.5),
             tier, totalGenerated, null, null, null
         ) as BaseMinion
         MinionAPI.runningMinions.add(instance)
-        instance.start()
-    }
-
-    @SubscribeEvent
-    fun onBuild(e: ItemBuildEvent.Post) {
-        val type = e.itemStream.sourceCompound["minion"] ?: return
-        val data = e.itemStream.getZaphkielData()
-        data["minion"] = type
+        instance.startJob()
     }
 
     @SubscribeEvent
@@ -87,7 +77,7 @@ object Listener {
         }
         if (minion == null) return
         if (e.player.uniqueId == minion.owner.uniqueId) {
-            e.player.openInventory(minion.inv)
+            e.player.openMinionMenu(minion)
         }
     }
 

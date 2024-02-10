@@ -5,8 +5,8 @@ import taboolib.module.configuration.Configuration
 import taboolib.module.configuration.MapConverter
 
 data class MinionType(
-    val id: String = "",
-    val parent: String = "",
+    val name: String = "",
+    val impl: String = "",
     val tiers: MutableList<MinionTier> = mutableListOf()
 ) {
 

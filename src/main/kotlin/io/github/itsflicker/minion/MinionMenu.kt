@@ -1,15 +1,13 @@
 package io.github.itsflicker.minion
 
 import io.github.itsflicker.minion.common.BaseMinion
-import org.bukkit.Material
+import org.bukkit.entity.Player
 import org.bukkit.inventory.EquipmentSlot
-import org.bukkit.inventory.Inventory
 import taboolib.library.xseries.XMaterial
-import taboolib.module.ui.buildMenu
-import taboolib.module.ui.type.Stored
+import taboolib.module.ui.openMenu
+import taboolib.module.ui.type.StorableChest
 import taboolib.platform.util.buildItem
 import taboolib.platform.util.giveItem
-import taboolib.platform.util.isAir
 
 /**
  * @author wlys
@@ -27,7 +25,7 @@ val resourceSlotRanges = listOf(
     30..34
 )
 
-fun generateInventory(minion: BaseMinion): Inventory = buildMenu<Stored>(minion.name) {
+fun Player.openMinionMenu(minion: BaseMinion) = openMenu<StorableChest>(minion.name) {
     rows(6)
     map(
         "xaxxxMxxx",
@@ -42,9 +40,9 @@ fun generateInventory(minion: BaseMinion): Inventory = buildMenu<Stored>(minion.
         checkSlot(18) { _, item -> item.type.equipmentSlot == EquipmentSlot.CHEST }
         checkSlot(27) { _, item -> item.type.equipmentSlot == EquipmentSlot.LEGS }
         checkSlot(36) { _, item -> item.type.equipmentSlot == EquipmentSlot.FEET }
-        resourceSlots.forEach {
-            checkSlot(it) { inv, item -> inv.getItem(it)?.type != Material.WHITE_STAINED_GLASS_PANE && item.isAir }
-        }
+//        resourceSlots.forEach {
+//            checkSlot(it) { inv, item -> inv.getItem(it)?.type != Material.WHITE_STAINED_GLASS_PANE && item.isAir }
+//        }
         firstSlot { _, item ->
             when (item.type.equipmentSlot) {
                 EquipmentSlot.CHEST -> 18
@@ -68,13 +66,13 @@ fun generateInventory(minion: BaseMinion): Inventory = buildMenu<Stored>(minion.
             }
         }
     }
-    set('x', XMaterial.BLACK_STAINED_GLASS_PANE) { name = "§r" }
+    set('x', XMaterial.BLACK_STAINED_GLASS_PANE) { name = "§f" }
     set('a', XMaterial.ARMOR_STAND) {  }
-    set('f', XMaterial.ORANGE_STAINED_GLASS_PANE) { name = "§r" }
+    set('f', XMaterial.ORANGE_STAINED_GLASS_PANE) { name = "§f" }
     set('M', minion.item)
     set('C', buildItem(XMaterial.CHEST) { name = "§6全部收回" }) {
-        val resources = resourceSlots.mapNotNull { minion.inv.getItem(it).takeUnless { item -> item?.type == Material.WHITE_STAINED_GLASS_PANE } }
+        val resources = minion.getItems()
         clicker.giveItem(resources)
-
+        minion.clearItems()
     }
 }

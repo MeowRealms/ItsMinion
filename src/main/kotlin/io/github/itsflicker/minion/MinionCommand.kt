@@ -9,7 +9,7 @@ import taboolib.expansion.createHelper
  * @author wlys
  * @since 2022/5/9 16:57
  */
-@CommandHeader("minion", permission = "minion.access")
+@CommandHeader("minion", permission = "minion.command.use")
 object MinionCommand {
 
     @CommandBody

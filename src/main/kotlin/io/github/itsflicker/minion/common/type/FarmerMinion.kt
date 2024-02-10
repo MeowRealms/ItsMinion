@@ -1,10 +1,10 @@
 package io.github.itsflicker.minion.common.type
 
 import io.github.itsflicker.minion.common.BaseMinion
-import io.github.itsflicker.minion.common.MinionImpl
 import org.bukkit.Location
 import org.bukkit.OfflinePlayer
 import org.bukkit.inventory.ItemStack
+import taboolib.expansion.Chain
 import taboolib.expansion.ioc.annotation.Component
 import java.util.*
 
@@ -26,7 +26,10 @@ class FarmerMinion(
     boots: ItemStack?
 ) : BaseMinion(uuid, type, owner, location, tier, totalGenerated, chestplate, leggings, boots) {
 
-    override fun start() {
+    override val workChain: Chain
+        get() = TODO("Not yet implemented")
+
+    override fun startJob() {
 //        val dirtArea = ArrayList<Block>()
 //        for (x in -2..2){
 //            for (z in -2..2){

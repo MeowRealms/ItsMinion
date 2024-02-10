@@ -1,37 +1,27 @@
+import io.izzel.taboolib.gradle.*
+
 plugins {
     `java-library`
-    `maven-publish`
-    id("io.izzel.taboolib") version "1.56"
-    id("org.jetbrains.kotlin.jvm") version "1.9.0"
+    id("io.izzel.taboolib") version "2.0.5"
+    id("org.jetbrains.kotlin.jvm") version "1.9.22"
 }
-
-val adyeshachVersion = "2.0.0-snapshot-36"
 
 taboolib {
     description {
         contributors {
             name("ItsFlicker")
         }
+        dependencies {
+            name("Adyeshach")
+            name("Zaphkiel")
+        }
     }
-    install("common")
-    install("common-5")
-    install("module-chat")
-    install("module-configuration")
-//    install("module-database")
-    install("module-effect")
-    install("module-kether")
-    install("module-lang")
-    install("module-metrics")
-    install("module-nms")
-    install("module-nms-util")
-    install("module-navigation")
-    install("module-ui")
-    install("platform-bukkit")
-    install("expansion-command-helper")
-    install("expansion-ioc")
-//    relocate("ink.ptms.adyeshach", "io.github.itsflicker.minion.adyeshach")
-    classifier = null
-    version = "6.0.12-40"
+    env {
+        install(UNIVERSAL, UI, EXPANSION_SUBMIT_CHAIN, EXPANSION_IOC, BUKKIT_ALL)
+    }
+    version {
+        taboolib = "6.1.0"
+    }
 }
 
 repositories {
@@ -39,24 +29,23 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
-    compileOnly("com.google.code.gson:gson:2.8.5")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3")
+val adyeshachVersion = "2.0.0-snapshot-36"
 
-    compileOnly("ink.ptms.core:v12002:12002:mapped")
-    compileOnly("ink.ptms.core:v12002:12002:universal")
+dependencies {
+    compileOnly("ink.ptms.core:v12004:12004:mapped")
+    compileOnly("ink.ptms.core:v12004:12004:universal")
     compileOnly("ink.ptms:nms-all:1.0.0")
     compileOnly("net.md-5:bungeecord-chat:1.17")
 
-    taboo("ink.ptms.adyeshach:common:$adyeshachVersion")
-    taboo("ink.ptms.adyeshach:common-impl:$adyeshachVersion")
-    taboo("ink.ptms.adyeshach:common-impl-nms:$adyeshachVersion")
-    taboo("ink.ptms.adyeshach:common-impl-nms-j17:$adyeshachVersion")
-    taboo("ink.ptms.adyeshach:module-language:$adyeshachVersion")
-    taboo("ink.ptms.adyeshach:api-data-serializer:$adyeshachVersion")
+    compileOnly("ink.ptms.adyeshach:common:$adyeshachVersion")
+    compileOnly("ink.ptms.adyeshach:common-impl:$adyeshachVersion")
+    compileOnly("ink.ptms.adyeshach:common-impl-nms:$adyeshachVersion")
+    compileOnly("ink.ptms.adyeshach:common-impl-nms-j17:$adyeshachVersion")
+    compileOnly("ink.ptms.adyeshach:module-language:$adyeshachVersion")
+    compileOnly("ink.ptms.adyeshach:api-data-serializer:$adyeshachVersion")
     compileOnly("ink.ptms:Zaphkiel:2.0.14")
 
+    compileOnly("com.google.code.gson:gson:2.8.5")
     compileOnly(kotlin("stdlib"))
     compileOnly(fileTree("libs"))
 }
@@ -68,25 +57,4 @@ tasks.withType<JavaCompile> {
 configure<JavaPluginConvention> {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
-}
-
-publishing {
-    repositories {
-        maven {
-            url = uri("https://repo.tabooproject.org/repository/releases")
-            credentials {
-                username = project.findProperty("taboolibUsername").toString()
-                password = project.findProperty("taboolibPassword").toString()
-            }
-            authentication {
-                create<BasicAuthentication>("basic")
-            }
-        }
-    }
-    publications {
-        create<MavenPublication>("library") {
-            from(components["java"])
-            groupId = project.group.toString()
-        }
-    }
 }

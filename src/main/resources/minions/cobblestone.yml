@@ -1,5 +1,5 @@
-id: cobblestone
-parent: mining
+name: cobblestone
+impl: mining
 base: AIR
 resources:
   - weight: 1
@@ -10,6 +10,7 @@ tiers:
   - tier: 1
     color: GRAY
     sleep: 10s
+    storage: 3
     item: "圆石小人I"
     hand:
       material: WOODEN_PICKAXE
